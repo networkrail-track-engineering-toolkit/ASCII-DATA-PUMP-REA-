@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#102a43">
+  <title>ASCII Data Pump</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --navy: #102a43;
+      --blue: #176b87;
+      --teal: #147d76;
+      --ink: #183247;
+      --muted: #60788a;
+      --line: #d6e0e8;
+      --paper: #ffffff;
+      --wash: #f3f7fa;
+      --ok: #157347;
+      --warn: #8b5e00;
+      --error: #a53434;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: linear-gradient(140deg, #e8f1f5 0%, #f8fafb 50%, #e8f1f5 100%);
+      min-height: 100vh;
+    }
+    header {
+      background: var(--navy);
+      color: white;
+      padding: 25px max(24px, calc((100vw - 1050px) / 2));
+      border-bottom: 4px solid #24a093;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .mark {
+      width: 42px; height: 42px; border-radius: 10px; display: grid;
+      place-items: center; background: #24a093; font-weight: 800; font-size: 19px;
+    }
+    h1 { margin: 0; font-size: 23px; letter-spacing: .2px; }
+    header p { margin: 5px 0 0; color: #c2d6e3; font-size: 13px; }
+    main { width: min(1050px, calc(100% - 32px)); margin: 26px auto 48px; }
+    .card {
+      background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+      box-shadow: 0 8px 25px rgba(16, 42, 67, .07); padding: 25px;
+    }
+    .section-heading { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
+    h2 { margin: 0 0 5px; color: var(--navy); font-size: 18px; }
+    .subheading { color: var(--muted); font-size: 13px; margin: 0 0 21px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px 20px; }
+    label { display: block; color: #244256; font-size: 13px; font-weight: 650; margin-bottom: 7px; }
+    input, select {
+      font: inherit; width: 100%; height: 42px; border: 1px solid #bbcbd6;
+      border-radius: 7px; padding: 0 11px; background: white; color: var(--ink);
+      outline: none;
+    }
+    input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #176b871a; }
+    .hint { font-size: 11px; color: var(--muted); margin-top: 5px; }
+    .field-action { display: flex; gap: 8px; }
+    .field-action input { min-width: 0; }
+    button {
+      border: 0; border-radius: 7px; min-height: 40px; padding: 0 14px;
+      font: 650 13px "Segoe UI", Arial, sans-serif; cursor: pointer;
+    }
+    button:disabled { opacity: .55; cursor: wait; }
+    .secondary { background: #eaf2f6; color: #164a64; white-space: nowrap; }
+    .secondary:hover { background: #dbeaf1; }
+    .primary {
+      min-height: 46px; background: var(--teal); color: white; padding: 0 24px;
+      box-shadow: 0 4px 10px #147d7630;
+    }
+    .primary:hover { background: #106b65; }
+    .actions { display: flex; align-items: center; gap: 15px; margin-top: 23px; }
+    .status { min-height: 20px; font-size: 13px; color: var(--muted); }
+    .status.success { color: var(--ok); }
+    .status.warning { color: var(--warn); }
+    .status.error { color: var(--error); }
+    .connection {
+      display: flex; gap: 10px; align-items: flex-start; margin-top: 21px;
+      border-radius: 8px; padding: 12px 13px; background: #f3f7fa;
+      color: var(--muted); font-size: 12px; line-height: 1.5;
+    }
+    .dot { flex: 0 0 8px; width: 8px; height: 8px; margin-top: 4px; border-radius: 50%; background: #8299a8; }
+    .connection.online .dot { background: #22a06b; }
+    .connection.offline .dot { background: #d19b2e; }
+    .results { margin-top: 20px; display: none; }
+    .results.visible { display: block; }
+    .summary { color: var(--muted); font-size: 13px; margin: 3px 0 12px; }
+    .table-wrap { overflow: auto; max-height: 430px; border: 1px solid var(--line); border-radius: 8px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; white-space: nowrap; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #e7edf1; text-align: left; }
+    th { position: sticky; top: 0; background: #eaf2f6; color: #28495d; z-index: 1; }
+    tr:last-child td { border-bottom: 0; }
+    .footnote { color: var(--muted); font-size: 11px; margin-top: 16px; line-height: 1.5; }
+    @media (max-width: 680px) {
+      header { padding: 20px 18px; }
+      main { width: calc(100% - 20px); margin-top: 14px; }
+      .card { padding: 18px 15px; }
+      .grid { grid-template-columns: 1fr; gap: 14px; }
+      .actions { align-items: stretch; flex-direction: column; }
+      .primary { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="mark" aria-hidden="true">AD</div>
+      <div>
+        <h1>ASCII Data Pump</h1>
+        <p>Track geometry data extraction</p>
+      </div>
+    </div>
+  </header>
+  <main>
+    <section class="card" aria-labelledby="query-title">
+      <div class="section-heading">
+        <h2 id="query-title">Extraction request</h2>
+      </div>
+      <p class="subheading">Choose a route and survey range. The output follows the workbook's tab-delimited 18-column format.</p>
+      <form id="query-form">
+        <div class="grid">
+          <div>
+            <label for="elr">ELR</label>
+            <input id="elr" name="elr" value="ECM1" list="elr-options" autocomplete="off" required>
+            <datalist id="elr-options"></datalist>
+            <div class="hint">Enter an ELR or select a suggestion.</div>
+          </div>
+          <div>
+            <label for="track">Track ID</label>
+            <div class="field-action">
+              <input id="track" name="track" value="2100" list="track-options" autocomplete="off" required>
+              <button class="secondary" type="button" id="load-tracks">Load tracks</button>
+            </div>
+            <datalist id="track-options"></datalist>
+          </div>
+          <div>
+            <label for="start">Start eighth</label>
+            <input id="start" name="start" value="138/0" placeholder="nnn/n" pattern="\d{3}/[0-7]" title="Use nnn/n, for example 138/0" required>
+            <div class="hint">Mile and eighth (0–7), for example 138/0.</div>
+          </div>
+          <div>
+            <label for="end">End eighth</label>
+            <input id="end" name="end" value="140/0" placeholder="nnn/n" pattern="\d{3}/[0-7]" title="Use nnn/n, for example 140/0" required>
+            <div class="hint">Must be at or after the start eighth.</div>
+          </div>
+          <div>
+            <label for="date">Survey date</label>
+            <div class="field-action">
+              <input id="date" name="date" type="date" value="2026-08-31" required>
+              <button class="secondary" type="button" id="load-dates">Load dates</button>
+            </div>
+            <div class="hint">Available dates can be loaded for the selected route and range.</div>
+            <datalist id="date-options"></datalist>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="primary" type="submit" id="extract">Extract data and export</button>
+          <div id="status" class="status" role="status" aria-live="polite"></div>
+        </div>
+      </form>
+      <div id="connection" class="connection">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="connection-text">Checking connection to the local data-pump service…</span>
+      </div>
+      <div id="results" class="results" aria-live="polite">
+        <h2>Extracted data</h2>
+        <p id="summary" class="summary"></p>
+        <p><button class="secondary" type="button" id="save-again">Save current extract</button></p>
+        <div class="table-wrap">
+          <table id="preview"></table>
+        </div>
+        <p class="footnote">The preview is limited to the first 100 rows; the exported file contains all returned rows.</p>
+      </div>
+      <p class="footnote">Data is requested from the internal Rail WEBQUERY service. This app runs locally and does not send data to a third-party service.</p>
+    </section>
+  </main>
+  <script type="module">
+    import {
+      OUTPUT_HEADERS, OUTPUT_UNITS, normalizeDate, parseEighth, parseList,
+      parseRows, toDmy, transformRecords
+    } from "./ascii_data_pump_core.mjs";
+
+    const form = document.querySelector("#query-form");
+    const status = document.querySelector("#status");
+    const extractButton = document.querySelector("#extract");
+    const connection = document.querySelector("#connection");
+    const connectionText = document.querySelector("#connection-text");
+    const elrInput = document.querySelector("#elr");
+    const trackInput = document.querySelector("#track");
+    const startInput = document.querySelector("#start");
+    const endInput = document.querySelector("#end");
+    const dateInput = document.querySelector("#date");
+    const results = document.querySelector("#results");
+    let lastExport = "";
+    let lastFilename = "";
+
+    function setStatus(message, type = "") {
+      status.textContent = message;
+      status.className = `status ${type}`;
+    }
+
+    async function requestDataset(dataset, params = {}) {
+      const response = await fetch("/api/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataset, params })
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || `Data service request failed (${response.status}).`);
+      }
+      return result;
+    }
+
+    function addOptions(list, values) {
+      const datalist = document.querySelector(`#${list}`);
+      datalist.replaceChildren(...values.map(value => {
+        const option = document.createElement("option");
+        option.value = value;
+        return option;
+      }));
+    }
+
+    function requestParamsForDateList() {
+      return {
+        elr: elrInput.value.trim(),
+        track: trackInput.value.trim(),
+        startYardage: parseEighth(startInput.value),
+        endYardage: parseEighth(endInput.value)
+      };
+    }
+
+    async function loadLists() {
+      try {
+        const result = await requestDataset("elrs");
+        addOptions("elr-options", parseList(result.body, result.contentType));
+        connection.classList.add("online");
+        connectionText.textContent = "Connected to the internal data service. Lists are refreshed from the source when requested.";
+      } catch (error) {
+        connection.classList.add("offline");
+        connectionText.textContent = `Live lists are unavailable (${error.message}). Enter ELR and track values manually; the live service is still required to extract data.`;
+      }
+    }
+
+    document.querySelector("#load-tracks").addEventListener("click", async () => {
+      try {
+        const result = await requestDataset("tracks", { elr: elrInput.value.trim() });
+        const values = parseList(result.body, result.contentType);
+        addOptions("track-options", values);
+        setStatus(`Loaded ${values.length} track IDs.`, "success");
+      } catch (error) {
+        setStatus(error.message, "error");
+      }
+    });
+
+    document.querySelector("#load-dates").addEventListener("click", async () => {
+      try {
+        const result = await requestDataset("dates", requestParamsForDateList());
+        const dates = parseList(result.body, result.contentType)
+          .map(normalizeDate).filter(Boolean);
+        if (!dates.length) throw new Error("No dates were returned for this route and range.");
+        dateInput.setAttribute("list", "date-options");
+        addOptions("date-options", dates);
+        setStatus(`Loaded ${dates.length} survey dates. Select a suggestion or enter a date.`, "success");
+      } catch (error) {
+        setStatus(error.message, "error");
+      }
+    });
+
+    function renderPreview(rows) {
+      const table = document.querySelector("#preview");
+      table.replaceChildren();
+      const head = document.createElement("thead");
+      const headingRow = document.createElement("tr");
+      for (const label of OUTPUT_HEADERS) {
+        const th = document.createElement("th");
+        th.textContent = label;
+        headingRow.append(th);
+      }
+      head.append(headingRow);
+      const body = document.createElement("tbody");
+      const previewRows = rows.slice(0, 100);
+      for (const row of previewRows) {
+        const tr = document.createElement("tr");
+        for (const value of row) {
+          const td = document.createElement("td");
+          td.textContent = value;
+          tr.append(td);
+        }
+        body.append(tr);
+      }
+      table.append(head, body);
+    }
+
+    function safeFilenamePart(value) {
+      return String(value).replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-");
+    }
+
+    async function saveFile(text, filename) {
+      if (typeof window.showSaveFilePicker === "function") {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: "Tab-delimited text", accept: { "text/plain": [".txt"] } }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(new Blob([text], { type: "text/plain;charset=utf-8" }));
+        await writable.close();
+        return;
+      }
+      const blobUrl = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
+      const anchor = document.createElement("a");
+      anchor.href = blobUrl;
+      anchor.download = filename;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    }
+
+    document.querySelector("#save-again").addEventListener("click", async () => {
+      if (!lastExport) return;
+      try {
+        await saveFile(lastExport, lastFilename);
+        setStatus(`Saved ${lastFilename}.`, "success");
+      } catch (error) {
+        if (error.name !== "AbortError") setStatus(error.message, "error");
+      }
+    });
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      extractButton.disabled = true;
+      results.classList.remove("visible");
+      try {
+        const startYardage = parseEighth(startInput.value);
+        const endYardage = parseEighth(endInput.value);
+        if (endYardage < startYardage) throw new Error("End eighth must be at or after start eighth.");
+        const metadata = {
+          elr: elrInput.value.trim(),
+          track: trackInput.value.trim(),
+          startEighth: startInput.value.trim(),
+          endEighth: endInput.value.trim(),
+          date: toDmy(dateInput.value)
+        };
+        if (!metadata.elr || !metadata.track) throw new Error("Enter both an ELR and a track ID.");
+        setStatus("Requesting survey data…");
+        const response = await requestDataset("data", {
+          elr: metadata.elr,
+          track: metadata.track,
+          startYardage,
+          endYardage,
+          date: metadata.date
+        });
+        const records = parseRows(response.body, response.contentType);
+        const transformed = transformRecords(records, metadata);
+        lastExport = transformed.text;
+        renderPreview(transformed.outputRows);
+        document.querySelector("#summary").textContent =
+          `${transformed.outputRows.length.toLocaleString()} rows from ${records.length.toLocaleString()} source records.`;
+        results.classList.add("visible");
+        lastFilename = `ASCII_${safeFilenamePart(metadata.elr)}_${safeFilenamePart(metadata.track)}_${safeFilenamePart(metadata.startEighth)}-${safeFilenamePart(metadata.endEighth)}_${metadata.date.replaceAll("/", "-")}.txt`;
+        try {
+          await saveFile(lastExport, lastFilename);
+          setStatus(`Exported ${transformed.outputRows.length.toLocaleString()} rows to ${lastFilename}.`, "success");
+        } catch (error) {
+          if (error.name === "AbortError") {
+            setStatus("Preview is ready; save dialog cancelled. Use Save current extract to save the file.", "warning");
+          } else {
+            throw error;
+          }
+        }
+        if (transformed.unknownMetrics.length) {
+          setStatus(`${transformed.unknownMetrics.length} source metric(s) were not in the workbook output columns: ${transformed.unknownMetrics.join(", ")}.`, "warning");
+        }
+      } catch (error) {
+        setStatus(error.message, "error");
+      } finally {
+        extractButton.disabled = false;
+      }
+    });
+
+    loadLists();
+  </script>
+</body>
+</html>
